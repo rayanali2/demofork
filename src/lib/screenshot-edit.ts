@@ -77,10 +77,10 @@ export async function renderScreenshotScene(options: {
   const ease = "pow(1-min(t/0.8,1),3)";
   const offset = [[0, 14], [-24, 0], [16, 10]][index];
   const filter = `[0:v]loop=loop=-1:size=1:start=0,setpts=N/(30*TB)[base];` +
-    `[base][1:v]overlay=x='${x}+(${offset[0]})*${ease}':y='${y}+${offset[1]}*${ease}':format=yuv444,format=yuv420p[out]`;
+    `[base][1:v]overlay=x='${x}+(${offset[0]})*${ease}':y='${y}+${offset[1]}*${ease}':format=yuv444,fps=30,format=yuv420p[out]`;
   await ffmpeg([
-    "-framerate", "30", "-i", frame, "-i", panel, "-filter_complex", filter, "-map", "[out]",
-    "-an", "-frames:v", String(Math.round(duration * 30)), "-c:v", "libx264", "-threads", "2",
+    "-framerate", "30", "-i", frame, "-framerate", "30", "-i", panel, "-filter_complex", filter, "-map", "[out]",
+    "-an", "-r", "30", "-frames:v", String(Math.round(duration * 30)), "-c:v", "libx264", "-threads", "2",
     "-preset", "veryfast", "-crf", "20", `cut-${index}.mp4`,
   ], directory, signal);
 }

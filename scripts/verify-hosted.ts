@@ -39,6 +39,9 @@ async function main() {
           await mkdir("examples", { recursive: true });
           await writeFile("examples/hosted-final-demo.mp4", bytes);
           const info = await inspectVideo("hosted-final-demo.mp4", `${process.cwd()}/examples`);
+          if (event.motion === "screenshot" && (Math.abs(info.duration - 9) > .1 || info.fps !== 30)) {
+            throw new Error(`Unexpected screenshot export timing: ${info.duration}s at ${info.fps} fps.`);
+          }
           console.info("HOSTED FLOW VERIFIED", { bytes: bytes.length, ...info, renderer: event.motion });
           complete = true;
         }

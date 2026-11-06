@@ -1,5 +1,8 @@
 // Official REST contracts: docs.magichour.ai/api-reference/{files/generate-asset-upload-urls,video-projects/image-to-video,video-projects/get-video-details}
 const API = "https://api.magichour.ai/v1";
+export function magicHourAvailable() {
+  return process.env.NEXT_PUBLIC_DEMO_MODE !== "true" && Boolean(process.env.MAGIC_HOUR_API_KEY);
+}
 type Project = { id: string; status: string; error?: { code?: string; message?: string } | null; downloads?: { url: string }[] };
 type Transport = typeof fetch;
 export class MagicHour {

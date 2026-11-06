@@ -1,4 +1,4 @@
-import { MAX_REQUEST_BYTES, validateInputs } from "./validation";
+import { MAX_REQUEST_BYTES, readMotion, validateInputs } from "./validation";
 import { readCaptions } from "./format";
 
 export async function readInputs(request: Request) {
@@ -26,5 +26,5 @@ export async function readInputs(request: Request) {
   if (images.some(image => !(image instanceof File))) throw new Error("Screenshots must be JPG or PNG images.");
   if (typeof name !== "string" || typeof description !== "string") throw new Error("Add your product name and description.");
   validateInputs(reference as File | null, images as File[], name, description);
-  return { reference: reference as File, images: images as File[], name: name.trim(), description: description.trim(), captions: readCaptions(form.getAll("captions")) };
+  return { reference: reference as File, images: images as File[], name: name.trim(), description: description.trim(), captions: readCaptions(form.getAll("captions")), motion: readMotion(form.get("motion")) };
 }

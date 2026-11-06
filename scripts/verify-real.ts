@@ -14,7 +14,7 @@ const timings = outputTiming(normalizeFormat(12));
 const mh = new MagicHour(process.env.MAGIC_HOUR_API_KEY!);
 const phase = process.argv[2] || "one";
 for (let i = 0; i < 3; i++) {
-  await copyFile(`public/sample/screenshot-${i}.png`, path.join(directory, `screenshot-${i}.png`));
+  await copyFile(`tests/fixtures/sample/screenshot-${i}.png`, path.join(directory, `screenshot-${i}.png`));
 }
 if (phase === "one") {
   const receipt = path.join(directory, "project-0.txt");

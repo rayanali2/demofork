@@ -4,16 +4,23 @@ import path from "node:path";
 import { buildStoryboard, outputTiming } from "./format";
 import { analyzeReference, finishCut, prepareScreenshot, stitchClips } from "./media";
 import { editDimensions, renderScreenshotScene } from "./screenshot-edit";
-import { MagicHour } from "./magic-hour";
+import { MagicHour, magicHourAvailable } from "./magic-hour";
 import type { readInputs } from "./request";
 
-export type PipelineInputs = Omit<Awaited<ReturnType<typeof readInputs>>, "captions"> & { captions?: string[] };
+export type PipelineInputs = Omit<Awaited<ReturnType<typeof readInputs>>, "captions" | "motion"> & {
+  captions?: string[];
+  motion?: Awaited<ReturnType<typeof readInputs>>["motion"];
+};
 export type Emit = (event: Record<string, unknown>) => void;
 
 export async function runPipeline(inputs: PipelineInputs, emit: Emit, signal: AbortSignal) {
-  const directory = await mkdtemp(path.join(tmpdir(), "demofork-"));
   const demo = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-  const useMagicHour = !demo && process.env.DEMOFORK_MOTION === "magic-hour" && Boolean(process.env.MAGIC_HOUR_API_KEY);
+  const available = magicHourAvailable();
+  if (inputs.motion === "magic-hour" && !available) {
+    throw new Error("Magic Hour is currently unavailable. Uncheck it to use the screenshot renderer.");
+  }
+  const useMagicHour = available && (inputs.motion ?? process.env.DEMOFORK_MOTION) === "magic-hour";
+  const directory = await mkdtemp(path.join(tmpdir(), "demofork-"));
   const progress = (stage: number, message: string) => { signal.throwIfAborted(); emit({ type: "progress", stage, message }); };
   try {
     progress(0, "Analyzing the reference...");

@@ -1,4 +1,4 @@
-// Build the public sample from hard-coded artwork. This script reads no user files or credentials.
+// Build the test fixtures from hard-coded artwork. This script reads no user files or credentials.
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,7 +7,7 @@ import { ffmpeg } from "../src/lib/media";
 import { runPipeline } from "../src/lib/pipeline";
 
 async function main() {
-  const out = path.resolve("public/sample");
+  const out = path.resolve("tests/fixtures/sample");
   const directory = await mkdtemp(path.join(tmpdir(), "demofork-sample-"));
   try {
     await mkdir(out, { recursive: true });

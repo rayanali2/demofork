@@ -11,8 +11,8 @@ test("complete screenshot pipeline analyzes locally, renders three scenes, retur
   const before = new Set(await readdir(tmpdir()));
   const events: Record<string, unknown>[] = [];
   try {
-    const reference = new File([await readFile("public/sample/demo.mp4")], "reference.mp4", { type: "video/mp4" });
-    const images = await Promise.all([0, 1, 2].map(async i => new File([await readFile(`public/sample/screenshot-${i}.png`)], `screen-${i}.png`, { type: "image/png" })));
+    const reference = new File([await readFile("tests/fixtures/sample/demo.mp4")], "reference.mp4", { type: "video/mp4" });
+    const images = await Promise.all([0, 1, 2].map(async i => new File([await readFile(`tests/fixtures/sample/screenshot-${i}.png`)], `screen-${i}.png`, { type: "image/png" })));
     const result = await runPipeline({ reference, images, name: "Maker's 50% [demo]: launch", description: "A workflow for makers" }, e => events.push(e), new AbortController().signal);
     assert.equal(result.buffer.subarray(4, 8).toString(), "ftyp");
     assert.ok(Math.abs(result.durationSeconds - 9) < .05);

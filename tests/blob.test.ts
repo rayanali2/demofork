@@ -22,8 +22,9 @@ test("private Blob staging is consumed into four files and deleted before render
     return { statusCode: 200, blob: { size: 4, contentType: policy.contentType }, stream: new Response("test").body };
   }) as typeof get;
   const remove = (async (p: string | string[]) => { removed.push(p as string[]); }) as typeof del;
-  const inputs = await readBlobInputs({ paths, productName: "Demo", description: "A product" }, fetchBlob, remove);
+  const inputs = await readBlobInputs({ paths, productName: "Demo", description: "A product", motion: "magic-hour" }, fetchBlob, remove);
   assert.equal(inputs.reference.size, 4); assert.equal(inputs.images.length, 3);
+  assert.equal(inputs.motion, "magic-hour");
   assert.deepEqual(removed, [paths]);
 });
 test("failed staging reads still delete all known uploads", async () => {

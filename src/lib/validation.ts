@@ -2,6 +2,13 @@ export const MAX_REFERENCE_BYTES = 40 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const MAX_REQUEST_BYTES = 65 * 1024 * 1024;
 export type Upload = { name: string; size: number; type: string };
+export type Motion = "screenshot" | "magic-hour";
+
+export function readMotion(value: unknown): Motion | undefined {
+  if (value == null) return undefined;
+  if (value === "screenshot" || value === "magic-hour") return value;
+  throw new Error("Choose a supported motion option.");
+}
 
 export function validateUpload(file: Upload, kind: "reference" | "image") {
   if (!file.size) throw new Error("This file is empty. Choose another file.");

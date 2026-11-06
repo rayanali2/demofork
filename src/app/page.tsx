@@ -1,13 +1,36 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { validateInputs, validateUpload } from "@/lib/validation";
+import { validateInputs, validateUpload, type Motion } from "@/lib/validation";
 import { buildStoryboard, readCaptions, type Analysis, type Storyboard } from "@/lib/format";
 import { upload } from "@vercel/blob/client";
 
-const steps = ["Reading the reference timing…", "Planning the three scenes…", "Preparing your screenshots…", "Rendering the hook…", "Rendering the walkthrough…", "Rendering the payoff…", "Exporting your MP4…"];
+const steps = ["Analyzing the reference...", "Breaking down the format...", "Building your version...", "Animating scene 1...", "Animating scene 2...", "Animating scene 3...", "Building the final cut..."];
 const sceneNames = ["Hook", "Walkthrough", "Payoff"];
-const sampleDescription = "An outfit planner that picks clothes for your calendar and generates a virtual try-on.";
+
+function Filmstrip() {
+  return (
+    <div className="empty-output">
+      <div className="scene-art" aria-hidden="true">
+        <div className="art-bracket left-bracket"/>
+        <div className="art-film">
+          <div className="film-top">{Array.from({ length: 6 }, (_, i) => <span key={i}/>)}</div>
+          <div className="film-scenes">
+            <div><span className="scene-glyph glyph-hook">↗</span><small>01 / HOOK</small></div>
+            <div><span className="scene-glyph glyph-explain">≋</span><small>02 / EXPLAIN</small></div>
+            <div><span className="scene-glyph glyph-payoff">✳</span><small>03 / REVEAL</small></div>
+          </div>
+          <div className="film-bottom">{Array.from({ length: 6 }, (_, i) => <span key={i}/>)}</div>
+        </div>
+        <div className="art-bracket right-bracket"/>
+      </div>
+      <span className="empty-kicker">YOUR NEXT LAUNCH STARTS HERE</span>
+      <h2>Great format.<br/>Completely your story.</h2>
+      <p>Add a reference and your screenshots.<br/>We’ll take care of the motion.</p>
+      <div className="output-specs"><span><Icon name="play" size={13}/> 8–15 SEC</span><span>3 SCENES</span><span>MP4 EXPORT</span></div>
+    </div>
+  );
+}
 
 function Icon({ name, size = 20 }: { name: "fork" | "upload" | "arrow" | "play" | "check" | "download"; size?: number }) {
   const paths = { fork: <><path d="M6 3v7a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v3M18 3v3a4 4 0 0 1-4 4h-4"/><circle cx="6" cy="3" r="2"/><circle cx="18" cy="3" r="2"/><circle cx="18" cy="21" r="2"/></>, upload: <><path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></>, arrow: <path d="M4 12h16m-6-6 6 6-6 6"/>, play: <path d="m9 5 11 7-11 7Z"/>, check: <path d="m5 12 4 4L19 6"/>, download: <><path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/></> };
@@ -30,7 +53,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [customCaptions, setCustomCaptions] = useState<string[] | null>(null);
-  const [sampleLoading, setSampleLoading] = useState(false);
+  const [selectedMotion, setSelectedMotion] = useState<Motion>("screenshot");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(-1);
@@ -40,7 +63,7 @@ export default function Home() {
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [video, setVideo] = useState("");
   const [outputDuration, setOutputDuration] = useState(0);
-  const [motion, setMotion] = useState("screenshot");
+  const [motion, setMotion] = useState<Motion>("screenshot");
   const lock = useRef(false);
   const abort = useRef<AbortController | null>(null);
   const outputUrl = useRef("");
@@ -53,32 +76,6 @@ export default function Home() {
   }, [busy, video]);
 
   const captions = customCaptions ?? buildStoryboard(name, description).scenes.map(scene => scene.caption);
-
-  async function loadExample() {
-    setSampleLoading(true);
-    setError("");
-    try {
-      const sampleFile = async (filename: string, type: string) => {
-        const response = await fetch(`/sample/${filename}`);
-        if (!response.ok) throw new Error("Couldn’t load the example. Try again.");
-        return new File([await response.blob()], filename, { type });
-      };
-      const [clip, ...screens] = await Promise.all([
-        sampleFile("demo.mp4", "video/mp4"),
-        ...[0, 1, 2].map(i => sampleFile(`screenshot-${i}.png`, "image/png")),
-      ]);
-      setReference(clip);
-      setImages(screens);
-      setName("Wardrobe");
-      setDescription(sampleDescription);
-      setCustomCaptions(null);
-      document.getElementById("product-name")?.focus();
-    } catch {
-      setError("Couldn’t load the example. Try again.");
-    } finally {
-      setSampleLoading(false);
-    }
-  }
 
   function pickScreenshots(files: File[]) {
     try {
@@ -105,7 +102,7 @@ export default function Home() {
       validateInputs(reference, images, name, description);
       readCaptions(captions);
     } catch (err) { setError((err as Error).message); return; }
-    lock.current = true; setBusy(true); setStage(0); setStatus(steps[0]); setSceneStatus(["pending", "pending", "pending"]); setAnalysis(null); setStoryboard(null); setVideo("");
+    lock.current = true; setBusy(true); setStage(0); setStatus(steps[0]); setSceneStatus(["pending", "pending", "pending"]); setAnalysis(null); setStoryboard(null); setVideo(""); setMotion(selectedMotion);
     if (outputUrl.current) URL.revokeObjectURL(outputUrl.current);
     abort.current = new AbortController();
     const staged: string[] = [];
@@ -114,6 +111,9 @@ export default function Home() {
       if (!configResponse.ok) throw new Error("Couldn’t connect to the server. Refresh and try again.");
       const config = await configResponse.json();
       if (!config.configured) throw new Error("Uploads are temporarily unavailable. Try again later.");
+      if (selectedMotion === "magic-hour" && !config.magicHourAvailable) {
+        throw new Error("Magic Hour is currently unavailable. Uncheck it to use the screenshot renderer.");
+      }
       let body: FormData | string;
       let headers: Record<string, string> = {};
       if (config.uploadMode === "blob") {
@@ -128,7 +128,7 @@ export default function Home() {
           staged.push(pathname);
           await upload(pathname, files[i], { access: "private", handleUploadUrl: "/api/upload", contentType, abortSignal: abort.current.signal });
         }
-        body = JSON.stringify({ paths: staged, productName: name, description, captions });
+        body = JSON.stringify({ paths: staged, productName: name, description, captions, motion: selectedMotion });
         headers = { "Content-Type": "application/json" };
       } else {
         if (config.hosted) throw new Error("Connect a private Vercel Blob store and redeploy to enable uploads.");
@@ -136,6 +136,7 @@ export default function Home() {
         form.append("reference", reference!);
         form.append("productName", name);
         form.append("description", description);
+        form.append("motion", selectedMotion);
         images.forEach(file => form.append("screenshots", file!));
         captions.forEach(caption => form.append("captions", caption));
         body = form;
@@ -176,7 +177,7 @@ export default function Home() {
   }
 
   const count = images.filter(Boolean).length;
-  const disabled = busy || sampleLoading;
+  const disabled = busy;
   const missing = !reference ? "Add a reference video to start."
     : !name.trim() || !description.trim() ? "Add your product name and description."
     : count < 3 ? `Add ${3 - count} more screenshot${count === 2 ? "" : "s"}.`
@@ -188,44 +189,44 @@ export default function Home() {
         <a className="brand" href="/" aria-label="DemoFork home">
           <span className="brand-icon"><Icon name="fork" size={21}/></span>DemoFork<span className="beta">BETA</span>
         </a>
-        <span className="header-note"><span className="live-dot"/>REFERENCE → ORIGINAL DEMO</span>
+        <span className="header-note"><span className="live-dot"/>A LITTLE INSPIRATION. ALL YOUR OWN.</span>
       </header>
       <main>
         <section className="intro">
-          <div className="eyebrow"><span/> THE PRODUCT DEMO BUILDER</div>
+          <div className="eyebrow"><span/> GOOD FORMATS DESERVE A SECOND LIFE</div>
           <h1>Steal the format.<br/><span>Not the content.</span></h1>
-          <p>Turn a reference and three screenshots into a short launch video.</p>
+          <p>Turn a demo you like into an original launch video<br/> for your own product.</p>
         </section>
         <div className="workspace">
           <form onSubmit={generate} className="input-panel">
             <section className="form-section">
               <div className="section-heading">
-                <span className="step-number">01</span><h2>Reference video</h2>
-                <button className="text-button" type="button" disabled={disabled} onClick={loadExample}>
-                  {sampleLoading ? "Loading example…" : "Load example"}
-                </button>
+                <span className="step-number">01</span><h2>The reference</h2><span className="section-detail">BORROW THE RHYTHM</span>
               </div>
               <Upload kind="reference" label="Reference demo" file={reference} disabled={disabled} onChange={file => pick(file, "reference")}/>
-              <p className="input-note">DemoFork uses the reference to plan the pace of your edit.</p>
+              <p className="input-note"><span>↳</span> Only timing is reused. Reference frames never go to AI.</p>
             </section>
             <section className="form-section product-section">
-              <div className="section-heading"><span className="step-number">02</span><h2>Your product</h2></div>
+              <div className="section-heading"><span className="step-number">02</span><h2>Your product</h2><span className="section-detail">MAKE IT YOURS</span></div>
               <label className="field-label" htmlFor="product-name">Product name</label>
               <input id="product-name" className="text-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Wardrobe" maxLength={80} disabled={disabled}/>
               <label className="field-label description-label" htmlFor="description">What does your product do?</label>
               <textarea id="description" className="text-input" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Plan outfits around your calendar and preview each look." maxLength={1200} rows={2} disabled={disabled}/>
               <div className="screenshots-heading">
-                <span>Product screenshots <small>{count}/3</small></span>
+                <span>Three screenshots. Three scenes.</span>
+                <small>{count}/3 ADDED</small>
+              </div>
+              <div className="image-grid">
+                {images.map((file, i) => <Upload key={i} kind="image" label={`Screenshot ${i + 1}`} index={i} file={file} onChange={next => pick(next, "image", i)} disabled={disabled}/>)}
+              </div>
+              <div className="screenshot-actions">
+                <p className="input-note">JPG or PNG · max 8 MB each · in story order</p>
                 <label className="text-button batch-picker">
                   Add all three
                   <input type="file" aria-label="Add all three screenshots" multiple accept=".jpg,.jpeg,.png,image/jpeg,image/png" disabled={disabled}
                     onChange={e => { if (e.target.files?.length) pickScreenshots(Array.from(e.target.files)); e.target.value = ""; }}/>
                 </label>
               </div>
-              <div className="image-grid">
-                {images.map((file, i) => <Upload key={i} kind="image" label={`Screenshot ${i + 1}`} index={i} file={file} onChange={next => pick(next, "image", i)} disabled={disabled}/>)}
-              </div>
-              <p className="input-note">JPG or PNG · 8 MB each · pick in story order. Tap a thumbnail to replace it.</p>
               <details className="caption-editor">
                 <summary>Edit captions <span>Optional · 10 words per scene</span></summary>
                 {captions.map((caption, i) => (
@@ -239,22 +240,29 @@ export default function Home() {
               </details>
             </section>
             <div className="generate-section">
-              <div className="section-heading"><span className="step-number">03</span><h2>Make the cut</h2></div>
+              <div className="section-heading"><span className="step-number">03</span><h2>Give it a new story</h2></div>
+              <label className="motion-option">
+                <input type="checkbox" checked={selectedMotion === "magic-hour"} disabled={disabled}
+                  onChange={e => { setSelectedMotion(e.target.checked ? "magic-hour" : "screenshot"); setError(""); }}/>
+                <span>Animate with <b>Magic Hour</b><small>Optional · sends your three product screenshots to Magic Hour</small></span>
+              </label>
               {error && <div className="error" role="alert">{error}</div>}
               <button className="primary-button generate-button" type="submit" disabled={disabled}>
-                {busy ? <><span className="spinner"/> BUILDING YOUR DEMO</> : <>GENERATE DEMO <Icon name="arrow" size={19}/></>}
+                {busy ? <><span className="spinner"/> BUILDING YOUR FORK</> : <>FORK THIS DEMO <Icon name="arrow" size={19}/></>}
               </button>
               <p className="generate-note">{busy ? "Keep this page open while the video renders." : missing}</p>
             </div>
           </form>
           <aside ref={outputPanel} className={`output-panel ${video ? "is-ready" : ""}`} aria-label="Video output" aria-busy={busy}>
             <div className="output-topline">
-              <span><span className={busy ? "live-dot pulse" : "tiny-square"}/>{video ? "YOUR DEMO" : busy ? "RENDERING" : "EXAMPLE OUTPUT"}</span>
-              <small>{video ? `${outputDuration.toFixed(1)} SEC / MP4` : "3 SCENES / MP4"}</small>
+              <span><span className={busy ? "live-dot pulse" : "tiny-square"}/>{video ? "YOUR FORK" : busy ? "IN THE MAKING" : "THE OUTPUT"}</span>
+              <small>{video ? `${outputDuration.toFixed(1)} SEC / MP4` : "A FORMAT → A FRESH START"}</small>
             </div>
             {video ? (
               <div className="result">
-                <h2>Your demo is ready.</h2>
+                <div className="ready-label"><Icon name="check" size={16}/> ALL YOURS</div>
+                <h2>Your fork is ready.</h2>
+                <p className="result-subtitle">Same rhythm. Your product. A whole new story.</p>
                 <video className="result-video" src={video} controls playsInline autoPlay muted aria-label="Generated product demo"/>
                 <a className="primary-button download" href={video} download="final-demo.mp4"><Icon name="download" size={17}/> DOWNLOAD MP4</a>
                 <p className="motion-credit">{motion === "magic-hour" ? "Motion generated with Magic Hour" : "Animated from your original screenshots"}</p>
@@ -270,8 +278,8 @@ export default function Home() {
             ) : busy || analysis ? (
               <div className="progress-content" role="status" aria-live="polite">
                 <div className="progress-mark"><Icon name="fork" size={30}/>{busy && <span/>}</div>
-                <h2>{error ? "The render stopped." : "Building your demo."}</h2>
-                <p>{error ? "Your inputs are still here. Check the message by the Generate button." : "Keep this page open while the video renders."}</p>
+                <h2>{busy ? "Making it your own." : "The render stopped."}</h2>
+                <p>{busy ? "Keep this page open. Good motion takes a moment." : "Your inputs are still here. Check the message by the Fork button."}</p>
                 <ol className="progress-list">
                   {steps.map((step, i) => {
                     const scene = i >= 3 && i <= 5 ? sceneStatus[i - 3] : null;
@@ -279,25 +287,23 @@ export default function Home() {
                     const current = !done && (scene === "running" || i === stage);
                     return <li key={step} className={done ? "done" : current ? "current" : ""}>
                       <span>{done ? <Icon name="check" size={13}/> : current && busy ? <span className="spinner"/> : String(i + 1).padStart(2, "0")}</span>
-                      {i === stage && stage !== 3 ? status : step}
+                      {scene && motion === "magic-hour" ? `Animating scene ${i - 2} with Magic Hour...` : i === stage && stage !== 3 ? status : step}
                     </li>;
                   })}
                 </ol>
+                {analysis && (
+                  <div className="analysis-snippet">
+                    <span className="mini-label">FORMAT FOUND</span>
+                    <p>{analysis.pacing} pacing <span>·</span> {analysis.durationSeconds.toFixed(1)}s reference <span>·</span> 3 scenes</p>
+                    <div className="beat-bar">{analysis.scenes.map(scene => <span key={scene.purpose} style={{ flex: scene.durationSeconds }}>{scene.purpose}</span>)}</div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="sample-preview">
-                <video className="result-video" src="/sample/demo.mp4" poster="/sample/poster.jpg" controls playsInline preload="none" aria-label="Example product demo"/>
-                <h2>See what the cut looks like.</h2>
-                <p>Watch a finished demo or load the example to try the full flow.</p>
-                <button className="sample-button" type="button" disabled={disabled} onClick={loadExample}>
-                  {sampleLoading ? "Loading example…" : "Load this example"} <Icon name="arrow" size={16}/>
-                </button>
-              </div>
-            )}
-            <div className="output-footer"><span className="privacy-mark">◇</span><p>Three scenes built from your own product screenshots.</p></div>
+            ) : <Filmstrip/>}
+            <div className="output-footer"><span className="privacy-mark">◇</span><p>The structure is the inspiration.<br/><strong>The assets, words, and story are yours.</strong></p></div>
           </aside>
         </div>
-        <footer className="page-footer"><span>DEMOFORK</span><span>Reference in. Launch video out.</span></footer>
+        <footer className="page-footer"><span>MADE FOR THE THINGS YOU’RE BUILDING.</span><span>Optional motion powered by <b>Magic Hour</b> <span className="footer-star">✳</span></span></footer>
       </main>
     </div>
   );

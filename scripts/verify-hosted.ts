@@ -13,7 +13,7 @@ async function main() {
   const paths: string[] = [];
   try {
     for (let i = 0; i < 4; i++) {
-      const source = i === 0 ? "public/sample/demo.mp4" : `public/sample/screenshot-${i - 1}.png`;
+      const source = i === 0 ? "tests/fixtures/sample/demo.mp4" : `tests/fixtures/sample/screenshot-${i - 1}.png`;
       const bytes = await readFile(source);
       const filename = i === 0 ? "reference.mp4" : `screenshot-${i - 1}.png`;
       const pathname = `demofork/${session}/${filename}`;
@@ -21,7 +21,8 @@ async function main() {
       await upload(pathname, new Blob([new Uint8Array(bytes)]), { access: "private", contentType: i === 0 ? "video/mp4" : "image/png", handleUploadUrl: `${base}/api/upload` });
       console.info("Uploaded", filename, `${bytes.length} bytes`);
     }
-    const response = await fetch(`${base}/api/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths, productName: "Wardrobe", description: "An AI wardrobe agent that picks clothes based on your plans and generates a virtual try-on." }), signal: AbortSignal.timeout(310_000) });
+    const motion = process.argv.includes("--magic-hour") ? "magic-hour" : "screenshot";
+    const response = await fetch(`${base}/api/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths, motion, productName: "Wardrobe", description: "An AI wardrobe agent that picks clothes based on your plans and generates a virtual try-on." }), signal: AbortSignal.timeout(310_000) });
     if (!response.ok) throw new Error(`Generation failed: ${response.status} ${await response.text()}`);
     const reader = response.body!.getReader(); let buffer = ""; const decoder = new TextDecoder(); let complete = false;
     while (true) {
@@ -35,6 +36,7 @@ async function main() {
         if (event.type === "progress") console.info(event.message);
         if (event.type === "scene") console.info(`Scene ${event.index + 1}: ${event.status}`);
         if (event.type === "complete") {
+          if (event.motion !== motion) throw new Error(`Expected the ${motion} renderer.`);
           const bytes = Buffer.from(event.video, "base64");
           await mkdir("examples", { recursive: true });
           await writeFile("examples/hosted-final-demo.mp4", bytes);

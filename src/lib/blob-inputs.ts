@@ -1,6 +1,6 @@
 import { del, get } from "@vercel/blob";
 import { uploadPolicy, validateBlobPaths } from "./blob-paths";
-import { validateInputs, validateUpload } from "./validation";
+import { readMotion, validateInputs, validateUpload } from "./validation";
 import { readCaptions } from "./format";
 
 export const blobConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
@@ -12,11 +12,12 @@ export async function cleanupBlobs(paths: string[], remove = del) {
   catch { console.error("[DemoFork] Temporary Blob cleanup failed; remove abandoned demofork/ uploads in the Vercel Storage dashboard."); }
 }
 
-export async function readBlobInputs(data: { paths?: unknown; productName?: unknown; description?: unknown; captions?: unknown }, fetchBlob = get, removeBlob = del) {
+export async function readBlobInputs(data: { paths?: unknown; productName?: unknown; description?: unknown; captions?: unknown; motion?: unknown }, fetchBlob = get, removeBlob = del) {
   const paths = validateBlobPaths(data.paths);
   try {
     if (typeof data.productName !== "string" || typeof data.description !== "string") throw new Error("Add your product name and description.");
     const captions = readCaptions(data.captions);
+    const motion = readMotion(data.motion);
     const files = new Map<string, File>();
     for (const pathname of paths) {
       const policy = uploadPolicy(pathname);
@@ -36,7 +37,7 @@ export async function readBlobInputs(data: { paths?: unknown; productName?: unkn
     const reference = files.get("reference")!;
     const images = [0, 1, 2].map(i => files.get(`screenshot-${i}`)!);
     validateInputs(reference, images, data.productName, data.description);
-    return { reference, images, name: data.productName.trim(), description: data.description.trim(), captions };
+    return { reference, images, name: data.productName.trim(), description: data.description.trim(), captions, motion };
   } finally {
     // The provider receives only in-memory product images. Cloud staging is removed before paid rendering.
     await cleanupBlobs(paths, removeBlob);
